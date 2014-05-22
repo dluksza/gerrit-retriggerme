@@ -1,4 +1,4 @@
-// Copyright (C) 2014 The Android Open Source Project
+// Copyright (C) 2014 Dariusz Luksza
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package org.luksza.gerrit;
+package org.luksza.gerrit.rest;
 
-import com.google.inject.AbstractModule;
+import com.google.gerrit.extensions.restapi.RestApiModule;
+import com.google.gerrit.server.change.ChangeResource;
 
-import org.luksza.gerrit.rest.RestModule;
+public class RestModule extends RestApiModule {
 
-class Module extends AbstractModule {
   @Override
   protected void configure() {
-    install(new RestModule());
+    post(ChangeResource.CHANGE_KIND, "retrigger").to(PostRetrigger.class);
   }
 }
