@@ -18,13 +18,15 @@ import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.extensions.restapi.BadRequestException;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
 import com.google.gerrit.extensions.restapi.RestModifyView;
+import com.google.gerrit.extensions.webui.UiAction;
 import com.google.gerrit.server.change.ChangeResource;
 import com.google.inject.Inject;
 
 import org.luksza.gerrit.config.ConfigurationProvider;
 
 public class PostRetrigger implements
-    RestModifyView<ChangeResource, PostRetrigger.Input> {
+    RestModifyView<ChangeResource, PostRetrigger.Input>,
+    UiAction<ChangeResource> {
   private ConfigurationProvider config;
 
   static class Input {}
@@ -39,6 +41,13 @@ public class PostRetrigger implements
       throws AuthException, BadRequestException, ResourceConflictException,
       Exception {
     return new Output(config.getJenkinsUrl());
+  }
+
+  @Override
+  public UiAction.Description getDescription(
+      ChangeResource resource) {
+    return new Description().setEnabled(true).setLabel("Retrigger Me!")
+        .setTitle("Retriggers jenkins verification job for this patch set.");
   }
 
   private static class Output {
