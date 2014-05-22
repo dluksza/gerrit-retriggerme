@@ -40,7 +40,6 @@ limitations under the License.
             <manifestEntries>
               <Gerrit-PluginName>RetriggerMe</Gerrit-PluginName>
               <Gerrit-Module>org.luksza.gerrit.Module</Gerrit-Module>
-              <Gerrit-SshModule>org.luksza.gerrit.SshModule</Gerrit-SshModule>
               <Gerrit-HttpModule>org.luksza.gerrit.HttpModule</Gerrit-HttpModule>
 
               <Implementation-Vendor>Gerrit Code Review</Implementation-Vendor>
