@@ -1,4 +1,4 @@
-// Copyright (C) 2014 The Android Open Source Project
+// Copyright (C) 2014 Dariusz Luksza
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,17 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package org.luksza.gerrit;
-
-import com.google.gerrit.extensions.registration.DynamicSet;
-import com.google.gerrit.extensions.webui.JavaScriptPlugin;
-import com.google.gerrit.extensions.webui.WebUiPlugin;
-import com.google.inject.servlet.ServletModule;
-
-class HttpModule extends ServletModule {
-  @Override
-  protected void configureServlets() {
-    DynamicSet.bind(binder(), WebUiPlugin.class).toInstance(
-        new JavaScriptPlugin("retrigger-me.js"));
-  }
-}
+Gerrit.install(function(self) {
+  self.onAction('change', 'retrigger', function(c) {
+    var ok = c.button('Do it!', {});
+    var cancel = c.button('Not really', {onclick: function() {c.hide()}});
+    c.popup(c.div(
+      c.msg("Really retrigger?"),
+      c.br(),
+      c.span(cancel, ok)
+    ));
+  });
+});
