@@ -27,6 +27,7 @@ limitations under the License.
   <properties>
     <Gerrit-ApiType>plugin</Gerrit-ApiType>
     <Gerrit-ApiVersion>2.9-rc1</Gerrit-ApiVersion>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
   <build>
@@ -54,6 +55,36 @@ limitations under the License.
           </archive>
         </configuration>
       </plugin>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>1.3</version>
+        <executions>
+          <execution>
+            <id>copy-plugin</id>
+            <configuration>
+              <executable>scp</executable>
+              <commandlineArgs>-o StrictHostKeyChecking=no ${project.build.directory}/${project.build.finalName}.${project.packaging} ${gerrit.systemUser}@${gerrit.host}:/tmp/${project.artifactId}.${project.packaging}</commandlineArgs>
+            </configuration>
+            <phase>pre-integration-test</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>install-plugin</id>
+            <configuration>
+              <executable>ssh</executable>
+              <commandlineArgs>-o StrictHostKeyChecking=no -p ${gerrit.sshPort} ${gerrit.deployUser}@${gerrit.host} gerrit plugin install --name ${project.artifactId} /tmp/${project.artifactId}.${project.packaging}</commandlineArgs>
+            </configuration>
+            <phase>pre-integration-test</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin> 
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
