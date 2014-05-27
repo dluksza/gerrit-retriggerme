@@ -14,7 +14,23 @@
 
 Gerrit.install(function(self) {
   self.onAction('change', 'retrigger', function(c) {
-    var ok = c.button('Do it!', {});
+    var submitFn =
+           function() {
+             c.hide();
+             var cng = c.change;
+             var patchSetNo = cng.revisions[cng.current_revision]._number;
+             c.call({change_no: cng._number,
+                     patch_set_no: patchSetNo,
+                     change_id: cng.change_id,
+                     revision: cng.current_revision}, function(resp) {
+                       c.popup(c.div(
+                         c.msg("Retriggered on: " + resp['jenkins_url']),
+                         c.br(),
+                         c.button('ok', {onclick: function() {c.hide()}})
+                       ));
+                     });
+           };
+    var ok = c.button('Do it!', {onclick: submitFn});
     var cancel = c.button('Not really', {onclick: function() {c.hide()}});
     c.popup(c.div(
       c.msg("Really retrigger?"),
