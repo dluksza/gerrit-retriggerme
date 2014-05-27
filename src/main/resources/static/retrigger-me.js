@@ -23,8 +23,12 @@ Gerrit.install(function(self) {
                      patch_set_no: patchSetNo,
                      change_id: cng.change_id,
                      revision: cng.current_revision}, function(resp) {
+                       var msg = "Can't retrigger build because of missing capability: retrigger.";
+                       if (resp) {
+                         msg = "Retriggered on: " + resp['jenkins_url'];
+                       }
                        c.popup(c.div(
-                         c.msg("Retriggered on: " + resp['jenkins_url']),
+                         c.msg(msg),
                          c.br(),
                          c.button('ok', {onclick: function() {c.hide()}})
                        ));
