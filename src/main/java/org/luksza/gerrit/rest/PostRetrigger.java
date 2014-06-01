@@ -15,6 +15,7 @@
 package org.luksza.gerrit.rest;
 
 import com.google.common.base.Optional;
+import com.google.gerrit.extensions.annotations.RequiresCapability;
 import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.extensions.restapi.BadRequestException;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
@@ -32,12 +33,14 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
+import org.luksza.gerrit.RetriggerCapability;
 import org.luksza.gerrit.config.ConfigurationProvider;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 
+@RequiresCapability(RetriggerCapability.NAME)
 public class PostRetrigger implements
     RestModifyView<ChangeResource, PostRetrigger.Input>,
     UiAction<ChangeResource> {

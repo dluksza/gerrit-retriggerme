@@ -1,4 +1,4 @@
-// Copyright (C) 2014 The Android Open Source Project
+// Copyright (C) 2014 Dariusz Luksza
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,19 +14,13 @@
 
 package org.luksza.gerrit;
 
-import com.google.gerrit.extensions.annotations.Exports;
 import com.google.gerrit.extensions.config.CapabilityDefinition;
-import com.google.inject.AbstractModule;
 
-import org.luksza.gerrit.rest.RestModule;
+public class RetriggerCapability extends CapabilityDefinition {
+  public static final String NAME = "retrigger";
 
-class Module extends AbstractModule {
   @Override
-  protected void configure() {
-    install(new RestModule());
-
-    bind(CapabilityDefinition.class).annotatedWith(
-        Exports.named(RetriggerCapability.NAME)).to(
-            RetriggerCapability.class);
+  public String getDescription() {
+    return "Retrigger CI jobs from Gerrit WEB UI";
   }
 }
