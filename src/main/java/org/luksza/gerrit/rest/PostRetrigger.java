@@ -21,6 +21,7 @@ import com.google.gerrit.extensions.restapi.BadRequestException;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
 import com.google.gerrit.extensions.restapi.RestModifyView;
 import com.google.gerrit.extensions.webui.UiAction;
+import com.google.gerrit.reviewdb.client.Project;
 import com.google.gerrit.server.change.ChangeResource;
 import com.google.inject.Inject;
 
@@ -65,9 +66,10 @@ public class PostRetrigger implements
       throws AuthException, BadRequestException, ResourceConflictException,
       Exception {
     HttpClient client = new DefaultHttpClient();
-    Optional<String> sessioIdOpt = createSession(client);
-    retriggerBuild(input, client, sessioIdOpt);
-    return new Output(config.getJenkinsUrl());
+    Project.NameKey project = resource.getChange().getProject();
+    Optional<String> sessioIdOpt = createSession(client, project);
+    retriggerBuild(input, client, project, sessioIdOpt);
+    return new Output(config.getJenkinsUrl(project));
   }
 
   @Override
@@ -87,11 +89,11 @@ public class PostRetrigger implements
   private static final String STATUS_OPEN = "status:open";
 
 
-  private Optional<String> createSession(HttpClient client)
+  private Optional<String> createSession(HttpClient client, Project.NameKey project)
       throws UnsupportedEncodingException, IOException, ClientProtocolException {
-    HttpPost search = prepareFormPost(urls.getSearchUrl());
+    HttpPost search = prepareFormPost(urls.getSearchUrl(project));
     search.setEntity(new UrlEncodedFormEntity(Arrays.asList(
-        new BasicNameValuePair(SELECTED_SERVER, config.getSelfName()),
+        new BasicNameValuePair(SELECTED_SERVER, config.getSelfName(project)),
         new BasicNameValuePair(QUERY_STRING, STATUS_OPEN))));
     HttpResponse searchResp = fireRequest(client, search);
     Header[] cookies = searchResp.getHeaders(SET_COOKIE);
@@ -103,10 +105,10 @@ public class PostRetrigger implements
     return Optional.absent();
   }
 
-  private void retriggerBuild(Input input, HttpClient client,
+  private void retriggerBuild(Input input, HttpClient client, Project.NameKey project,
       Optional<String> sessioIdOpt) throws UnsupportedEncodingException,
       IOException, ClientProtocolException {
-    HttpPost build = prepareFormPost(urls.getBuildUrl());
+    HttpPost build = prepareFormPost(urls.getBuildUrl(project));
     build.setHeader(COOKIE, sessioIdOpt.get());
     build.setEntity(new UrlEncodedFormEntity(
         Arrays

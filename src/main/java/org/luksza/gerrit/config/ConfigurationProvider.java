@@ -15,25 +15,52 @@
 package org.luksza.gerrit.config;
 
 import com.google.gerrit.extensions.annotations.PluginName;
+import com.google.gerrit.reviewdb.client.Project;
 import com.google.gerrit.server.config.PluginConfig;
 import com.google.gerrit.server.config.PluginConfigFactory;
+import com.google.gerrit.server.project.NoSuchProjectException;
 import com.google.inject.Inject;
 
 public class ConfigurationProvider {
-  private final PluginConfig pluginConfig;
+
+  private static final String JENKINSURL = "jenkinsUrl";
+  private static final String SELFNAME = "selfName";
+  private static final String DEFAULT_JENKINSURL = "http://localhost:9090/";
+  private static final String DEFAULT_SELFNAME = "gerrit";
+
+  private final PluginConfigFactory configFactory;
+  private final String pluginName;
+  private final String defaultJenkinsUrl;
+  private final String defaultSelfName;
 
   @Inject
   ConfigurationProvider(
       PluginConfigFactory configFactory,
       @PluginName String pluginName) {
-    pluginConfig = configFactory.getFromGerritConfig(pluginName);
+    this.configFactory = configFactory;
+    this.pluginName = pluginName;
+
+    // Read default configuration from gerrit.config, for backward compatibility
+    PluginConfig pluginConfig = configFactory.getFromGerritConfig(pluginName);
+    this.defaultJenkinsUrl = pluginConfig.getString(JENKINSURL, DEFAULT_JENKINSURL);
+    this.defaultSelfName = pluginConfig.getString(SELFNAME, DEFAULT_SELFNAME);
   }
 
-  public String getJenkinsUrl() {
-    return pluginConfig.getString("jenkinsUrl", "http://localhost:9090/");
+  public String getJenkinsUrl(Project.NameKey project) {
+    try {
+      return configFactory.getFromProjectConfigWithInheritance(project, pluginName)
+        .getString(JENKINSURL, defaultJenkinsUrl);
+    } catch(NoSuchProjectException e) {
+      return defaultJenkinsUrl;
+    }
   }
 
-  public String getSelfName() {
-    return pluginConfig.getString("selfName", "gerrit");
+  public String getSelfName(Project.NameKey project) {
+    try {
+      return configFactory.getFromProjectConfigWithInheritance(project, pluginName)
+        .getString(SELFNAME, defaultSelfName);
+    } catch(NoSuchProjectException e) {
+      return defaultSelfName;
+    }
   }
 }
