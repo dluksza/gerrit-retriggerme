@@ -14,6 +14,7 @@
 
 package org.luksza.gerrit.rest;
 
+import com.google.gerrit.reviewdb.client.Project;
 import com.google.inject.Inject;
 
 import org.luksza.gerrit.config.ConfigurationProvider;
@@ -26,11 +27,11 @@ public class Urls {
     this.config = config;
   }
 
-  String getSearchUrl() {
-    return config.getJenkinsUrl() + "gerrit_manual_trigger/gerritSearch";
+  String getSearchUrl(Project.NameKey project) {
+    return config.getJenkinsUrl(project) + "gerrit_manual_trigger/gerritSearch";
   }
 
-  String getBuildUrl() {
-    return config.getJenkinsUrl() + "gerrit_manual_trigger/build";
+  String getBuildUrl(Project.NameKey project) {
+    return config.getJenkinsUrl(project) + "gerrit_manual_trigger/build";
   }
 }
