@@ -27,6 +27,7 @@ import com.google.inject.Inject;
 
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
@@ -66,12 +67,15 @@ public class PostRetrigger implements
   public Object apply(ChangeResource resource, Input input)
       throws AuthException, BadRequestException, ResourceConflictException,
       Exception {
+    Project.NameKey project = resource.getChange().getProject();
+    String errorMessage = null;
     try (CloseableHttpClient client = HttpClients.custom().build()) {
-      Project.NameKey project = resource.getChange().getProject();
       Optional<String> sessionIdOpt = createSession(client, project);
       retriggerBuild(input, client, project, sessionIdOpt);
-      return new Output(config.getJenkinsUrl(project));
+    } catch(IOException e) {
+      errorMessage = e.getMessage();
     }
+    return new Output(config.getJenkinsUrl(project), errorMessage);
   }
 
   @Override
@@ -132,15 +136,21 @@ public class PostRetrigger implements
   private HttpResponse fireRequest(HttpClient client, HttpPost req)
       throws IOException, ClientProtocolException {
     HttpResponse resp = client.execute(req);
+    int code = resp.getStatusLine().getStatusCode();
+    if (code < HttpStatus.SC_OK || code >= HttpStatus.SC_BAD_REQUEST) {
+      throw new IOException(resp.getStatusLine().getReasonPhrase());
+    }
     EntityUtils.consume(resp.getEntity());
     return resp;
   }
 
   private static class Output {
     String jenkinsUrl;
+    String errorMessage;
 
-    Output(String jenkinsUrl) {
+    Output(String jenkinsUrl, String errorMessage) {
       this.jenkinsUrl = jenkinsUrl;
+      this.errorMessage = errorMessage;
     }
   }
 }

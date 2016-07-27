@@ -24,12 +24,19 @@ Gerrit.install(function(self) {
                      change_id: cng.change_id,
                      revision: cng.current_revision}, function(resp) {
                        var msg = "Can't retrigger build because of missing capability: retrigger.";
+                       var error = null
                        if (resp) {
-                         msg = "Retriggered on: " + resp['jenkins_url'];
+                         error = resp['error_message'];
+                         if (error) {
+                           msg = "Retrigger on '" + resp['jenkins_url'] + "' failed:";
+                         } else {
+                           msg = "Retriggered on: " + resp['jenkins_url'];
+                         }
                        }
+
                        c.popup(c.div(
                          c.msg(msg),
-                         c.br(),
+                         error ? c.span(c.br(), c.msg(error), c.br()) : c.br(),
                          c.button('ok', {onclick: function() {c.hide()}})
                        ));
                      });
