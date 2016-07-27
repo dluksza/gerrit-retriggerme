@@ -31,7 +31,8 @@ import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 import org.luksza.gerrit.RetriggerCapability;
@@ -65,11 +66,12 @@ public class PostRetrigger implements
   public Object apply(ChangeResource resource, Input input)
       throws AuthException, BadRequestException, ResourceConflictException,
       Exception {
-    HttpClient client = new DefaultHttpClient();
-    Project.NameKey project = resource.getChange().getProject();
-    Optional<String> sessioIdOpt = createSession(client, project);
-    retriggerBuild(input, client, project, sessioIdOpt);
-    return new Output(config.getJenkinsUrl(project));
+    try (CloseableHttpClient client = HttpClients.custom().build()) {
+      Project.NameKey project = resource.getChange().getProject();
+      Optional<String> sessionIdOpt = createSession(client, project);
+      retriggerBuild(input, client, project, sessionIdOpt);
+      return new Output(config.getJenkinsUrl(project));
+    }
   }
 
   @Override
@@ -106,10 +108,12 @@ public class PostRetrigger implements
   }
 
   private void retriggerBuild(Input input, HttpClient client, Project.NameKey project,
-      Optional<String> sessioIdOpt) throws UnsupportedEncodingException,
+      Optional<String> sessionIdOpt) throws UnsupportedEncodingException,
       IOException, ClientProtocolException {
     HttpPost build = prepareFormPost(urls.getBuildUrl(project));
-    build.setHeader(COOKIE, sessioIdOpt.get());
+    if (sessionIdOpt.isPresent()) {
+      build.setHeader(COOKIE, sessionIdOpt.get());
+    }
     build.setEntity(new UrlEncodedFormEntity(
         Arrays
             .asList(new BasicNameValuePair(SELECTED_IDS, input.changeId
