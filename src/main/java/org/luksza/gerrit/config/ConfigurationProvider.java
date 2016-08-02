@@ -16,19 +16,24 @@ package org.luksza.gerrit.config;
 
 import com.google.gerrit.extensions.annotations.PluginName;
 import com.google.gerrit.reviewdb.client.Project;
+import com.google.gerrit.server.config.GerritServerConfig;
 import com.google.gerrit.server.config.PluginConfig;
 import com.google.gerrit.server.config.PluginConfigFactory;
 import com.google.gerrit.server.project.NoSuchProjectException;
 import com.google.inject.Inject;
+import org.eclipse.jgit.lib.Config;
 
 public class ConfigurationProvider {
 
   private static final String JENKINSURL = "jenkinsUrl";
   private static final String SELFNAME = "selfName";
+  private static final String USERNAME = "userName";
+  private static final String TOKEN = "token";
   private static final String DEFAULT_JENKINSURL = "http://localhost:9090/";
   private static final String DEFAULT_SELFNAME = "gerrit";
 
   private final PluginConfigFactory configFactory;
+  private final Config gerritConfig;
   private final String pluginName;
   private final String defaultJenkinsUrl;
   private final String defaultSelfName;
@@ -36,8 +41,10 @@ public class ConfigurationProvider {
   @Inject
   ConfigurationProvider(
       PluginConfigFactory configFactory,
-      @PluginName String pluginName) {
+      @PluginName String pluginName,
+      @GerritServerConfig Config cfg) {
     this.configFactory = configFactory;
+    this.gerritConfig = cfg;
     this.pluginName = pluginName;
 
     // Read default configuration from gerrit.config, for backward compatibility
@@ -62,5 +69,13 @@ public class ConfigurationProvider {
     } catch(NoSuchProjectException e) {
       return defaultSelfName;
     }
+  }
+
+  public String getJenkinsUserName(String url) {
+    return gerritConfig.getString(pluginName, url, USERNAME);
+  }
+
+  public String getJenkinsToken(String url) {
+    return gerritConfig.getString(pluginName, url, TOKEN);
   }
 }

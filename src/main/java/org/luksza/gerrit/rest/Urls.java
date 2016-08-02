@@ -34,4 +34,8 @@ public class Urls {
   String getBuildUrl(Project.NameKey project) {
     return config.getJenkinsUrl(project) + "gerrit_manual_trigger/build";
   }
+
+  String getCrumbUrl(Project.NameKey project) {
+    return config.getJenkinsUrl(project) + "crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)";
+  }
 }

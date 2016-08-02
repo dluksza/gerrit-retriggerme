@@ -25,20 +25,27 @@ import com.google.gerrit.reviewdb.client.Project;
 import com.google.gerrit.server.change.ChangeResource;
 import com.google.inject.Inject;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.http.Header;
+import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.luksza.gerrit.RetriggerCapability;
 import org.luksza.gerrit.config.ConfigurationProvider;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 
 @RequiresCapability(RetriggerCapability.NAME)
@@ -65,11 +72,18 @@ public class PostRetrigger implements
   public Object apply(ChangeResource resource, Input input)
       throws AuthException, BadRequestException, ResourceConflictException,
       Exception {
-    HttpClient client = new DefaultHttpClient();
     Project.NameKey project = resource.getChange().getProject();
-    Optional<String> sessioIdOpt = createSession(client, project);
-    retriggerBuild(input, client, project, sessioIdOpt);
-    return new Output(config.getJenkinsUrl(project));
+    String jenkinsUrl = config.getJenkinsUrl(project);
+    String errorMessage = null;
+    try (CloseableHttpClient client = HttpClients.custom().build()) {
+      Optional<Header> authOpt = getAuth(jenkinsUrl);
+      Optional<Header> crumbOpt = getCrumb(client, project, authOpt);
+      Optional<String> sessionIdOpt = createSession(client, project, crumbOpt, authOpt);
+      retriggerBuild(input, client, project, sessionIdOpt, crumbOpt, authOpt);
+    } catch(IOException e) {
+      errorMessage = e.getMessage();
+    }
+    return new Output(jenkinsUrl, errorMessage);
   }
 
   @Override
@@ -88,10 +102,38 @@ public class PostRetrigger implements
 
   private static final String STATUS_OPEN = "status:open";
 
+  private Optional<Header> getAuth(String jenkinsUrl) {
+    String userName = config.getJenkinsUserName(jenkinsUrl);
+    String token = config.getJenkinsToken(jenkinsUrl);
+    if (userName == null || token == null) {
+      return Optional.absent();
+    }
 
-  private Optional<String> createSession(HttpClient client, Project.NameKey project)
-      throws UnsupportedEncodingException, IOException, ClientProtocolException {
-    HttpPost search = prepareFormPost(urls.getSearchUrl(project));
+    String auth = userName + ":" + token;
+    byte[] encodedAuth = Base64.encodeBase64(auth.getBytes(Charset.forName("UTF-8")));
+    Header header = new BasicHeader(HttpHeaders.AUTHORIZATION, "Basic " + new String(encodedAuth));
+    return Optional.of(header);
+  }
+
+  private Optional<Header> getCrumb(HttpClient client, Project.NameKey project, Optional<Header> auth) {
+    HttpGet get = new HttpGet(urls.getCrumbUrl(project));
+    if (auth.isPresent()) {
+      get.setHeader(auth.get());
+    }
+    try {
+  	  HttpResponse response = client.execute(get);
+      String[] crumb = EntityUtils.toString(response.getEntity()).split(":", 2);
+      Header header = new BasicHeader(crumb[0], crumb[1]);
+      return Optional.of(header);
+    } catch(IOException e) {
+      return Optional.absent();
+    }
+  }
+
+  private Optional<String> createSession(HttpClient client, Project.NameKey project,
+      Optional<Header> crumb, Optional<Header> auth) throws UnsupportedEncodingException,
+      IOException, ClientProtocolException {
+    HttpPost search = prepareFormPost(urls.getSearchUrl(project), crumb, auth);
     search.setEntity(new UrlEncodedFormEntity(Arrays.asList(
         new BasicNameValuePair(SELECTED_SERVER, config.getSelfName(project)),
         new BasicNameValuePair(QUERY_STRING, STATUS_OPEN))));
@@ -106,10 +148,12 @@ public class PostRetrigger implements
   }
 
   private void retriggerBuild(Input input, HttpClient client, Project.NameKey project,
-      Optional<String> sessioIdOpt) throws UnsupportedEncodingException,
-      IOException, ClientProtocolException {
-    HttpPost build = prepareFormPost(urls.getBuildUrl(project));
-    build.setHeader(COOKIE, sessioIdOpt.get());
+      Optional<String> sessionIdOpt, Optional<Header> crumb, Optional<Header> auth)
+      throws UnsupportedEncodingException, IOException, ClientProtocolException {
+    HttpPost build = prepareFormPost(urls.getBuildUrl(project), crumb, auth);
+    if (sessionIdOpt.isPresent()) {
+      build.setHeader(COOKIE, sessionIdOpt.get());
+    }
     build.setEntity(new UrlEncodedFormEntity(
         Arrays
             .asList(new BasicNameValuePair(SELECTED_IDS, input.changeId
@@ -119,24 +163,36 @@ public class PostRetrigger implements
     fireRequest(client, build);
   }
 
-  private HttpPost prepareFormPost(String url) {
+  private HttpPost prepareFormPost(String url, Optional<Header> crumb, Optional<Header> auth) {
     HttpPost post = new HttpPost(url);
     post.setHeader("Content-Type", "application/x-www-form-urlencoded");
+    if (crumb.isPresent()) {
+      post.setHeader(crumb.get());
+    }
+    if (auth.isPresent()) {
+      post.setHeader(auth.get());
+    }
     return post;
   }
 
   private HttpResponse fireRequest(HttpClient client, HttpPost req)
       throws IOException, ClientProtocolException {
     HttpResponse resp = client.execute(req);
+    int code = resp.getStatusLine().getStatusCode();
+    if (code < HttpStatus.SC_OK || code >= HttpStatus.SC_BAD_REQUEST) {
+      throw new IOException(resp.getStatusLine().getReasonPhrase());
+    }
     EntityUtils.consume(resp.getEntity());
     return resp;
   }
 
   private static class Output {
     String jenkinsUrl;
+    String errorMessage;
 
-    Output(String jenkinsUrl) {
+    Output(String jenkinsUrl, String errorMessage) {
       this.jenkinsUrl = jenkinsUrl;
+      this.errorMessage = errorMessage;
     }
   }
 }
