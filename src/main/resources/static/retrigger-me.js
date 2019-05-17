@@ -13,6 +13,9 @@
 // limitations under the License.
 
 Gerrit.install(function(self) {
+
+  if (window.Polymer) { return; }
+
   self.onAction('change', 'retrigger', function(c) {
     var submitFn =
            function() {
@@ -50,3 +53,4 @@ Gerrit.install(function(self) {
     ));
   });
 });
+

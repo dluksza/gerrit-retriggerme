@@ -24,5 +24,7 @@ class HttpModule extends ServletModule {
   protected void configureServlets() {
     DynamicSet.bind(binder(), WebUiPlugin.class).toInstance(
         new JavaScriptPlugin("retrigger-me.js"));
+    DynamicSet.bind(binder(), WebUiPlugin.class).toInstance(
+        new JavaScriptPlugin("retrigger-me.html"));
   }
 }
