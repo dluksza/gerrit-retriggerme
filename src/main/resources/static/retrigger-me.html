@@ -1,0 +1,108 @@
+<!--
+Copyright (C) 2019 Francois Ferrand
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+<dom-module id="retrigger-me-popup">
+  <template>
+    <gr-dialog id="retriggerMeDialog"
+               class="retrigger-me-dialog"
+               confirm-label="Do it!"
+               confirm-on-enter
+               cancel-label="Not really"
+               on-cancel="_handleCancel"
+               on-confirm="_handleConfirm">
+      <div class="header" slot="header">
+        Really retrigger ?<br/>
+      </div>
+    </gr-dialog>
+  </template>
+  <script>
+    'use strict';
+    Polymer({
+      is: 'retrigger-me-popup',
+      properties: {
+        changeNum: String,
+        api: Object,
+        plugin: Object,
+        change: Object,
+      },
+      _handleConfirm(e) {
+        e.preventDefault();
+
+        var currentRevision = this.change.current_revision;
+        var patchSetNo = this.change.revisions[currentRevision]._number;
+        var url = this.plugin.changeActions().getActionDetails('retrigger').__url;
+        this.plugin.restApi().post(url, {
+          change_no: this.change._number,
+          patch_set_no: patchSetNo,
+          change_id: this.change.change_id,
+          revision: currentRevision,
+        }).then((resp) => {
+          this._close();
+          var msg = "Can't retrigger build because of missing capability: retrigger.";
+          if (resp) {
+            var error = resp['error_message'];
+            if (error)
+              msg = "Retrigger on '" + resp['jenkins_url'] + "' failed:\n" + error;
+            else
+              msg = "Retriggered on: " + resp['jenkins_url'];
+          }
+          document.dispatchEvent(new CustomEvent('show-alert', {
+            detail: {
+              message: msg,
+            },
+            bubbles: true,
+          }));
+        }).catch((error) => {
+          this._close();
+          document.dispatchEvent(new CustomEvent('show-alert', {
+            detail: {
+              message: `Plugin network error: ${error}`,
+            },
+          }));
+        });
+      },
+      _handleCancel(e) {
+        e.preventDefault();
+        this._close();
+      },
+      _close() {
+        this.api.close();
+        this.api = null;
+        this.change = null;
+        this.plugin = null;
+      }
+    });
+  </script>
+</dom-module>
+<dom-module id="retrigger-me">
+  <script>
+    'use strict';
+    Gerrit.install(plugin => {
+      plugin.on('showchange', (change, revision) => {
+        var changeActions = plugin.changeActions();
+        var action = changeActions.getActionDetails('retrigger').__key;
+        changeActions.addTapListener(action, function(c) {
+          plugin.popup('retrigger-me-popup').then(api => {
+            var popup = Polymer.dom(api._getElement()).querySelector('retrigger-me-popup')
+            popup.api = api;
+            popup.change = change;
+            popup.plugin = plugin;
+          });
+        });
+      });
+    });
+  </script>
+</dom-module>
